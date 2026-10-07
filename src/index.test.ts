@@ -388,6 +388,34 @@ describe('ATR Parsing and Matching', () => {
       });
       await expect(module.fetchAndParseAtrList()).rejects.toThrow('Failed to fetch ATR list: Not Found');
     });
+
+    test('should ignore invalid, overly long, or malicious regex lines', async () => {
+      const mockAtrList = `
+3B04([
+	Malformed regex line
+
+\\d{4}
+	Escape class line
+
+([0-9A-F]+)+X
+	ReDoS pattern line
+
+${'A'.repeat(68)}
+	Overly long ATR line (> 66 chars)
+
+3B 01 02 03
+	Valid Card
+`;
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(mockAtrList),
+      });
+
+      const atrMap = await module.fetchAndParseAtrList();
+
+      expect(atrMap.size).toBe(1);
+      expect(atrMap.get('3B010203')).toEqual(['Valid Card']);
+    });
   });
 
   describe('matchAtr', () => {
@@ -408,6 +436,18 @@ describe('ATR Parsing and Matching', () => {
     test('should return null if no match is found', () => {
       const matches = module.matchAtr('3B010299', atrMap);
       expect(matches).toBeNull();
+    });
+
+    test('should safely skip invalid or malicious map keys without throwing or hanging', () => {
+      const unsafeMap = new Map<string, string[]>([
+        ['3B04([', ['Malformed Syntax']],
+        ['([0-9A-F]+)+X', ['ReDoS Pattern']],
+        ['\\D{4}', ['Inverted Escape']],
+        ['3B010203', ['Safe Match']],
+      ]);
+
+      expect(() => module.matchAtr('3B'.repeat(20), unsafeMap)).not.toThrow();
+      expect(module.matchAtr('3B010203', unsafeMap)).toEqual(['Safe Match']);
     });
   });
 });
