@@ -51,8 +51,10 @@ const START_TRACKING_STRING = "Start tracking readers";
 const STOP_TRACKING_STRING = "Stop tracking readers";
 
 const ATR_LIST_URL = "https://raw.githubusercontent.com/LudovicRousseau/pcsc-tools/refs/heads/master/smartcard_list.txt";
-// Valid ATR pattern (spaces stripped): 1 to 66 hex digits or '.' wildcards (max 33 bytes).
-const VALID_ATR_PATTERN_REGEX = /^[0-9A-Fa-f.]{1,66}$/;
+// Valid ATR pattern (spaces stripped): 1 to 33 whole bytes (2 to 66 nibble tokens),
+// where each nibble is a hex digit, '.' wildcard, or hex character class (e.g. [13], [1-5]).
+const VALID_ATR_PATTERN_REGEX =
+  /^(?:(?:[0-9A-Fa-f.]|\[(?:[0-9A-Fa-f](?:-[0-9A-Fa-f])?){1,16}\]){2}){1,33}$/;
 let atrMap: Map<string, string[]> | null = null;
 
 export async function fetchAndParseAtrList(): Promise<Map<string, string[]>> {
@@ -102,9 +104,13 @@ export function matchAtr(atrHex: string, map: Map<string, string[]>): string[] |
     if (!VALID_ATR_PATTERN_REGEX.test(regexStr)) {
       continue;
     }
-    const regex = new RegExp('^' + regexStr.replace(/\./g, '[0-9A-F]') + '$', 'i');
-    if (regex.test(atrHex)) {
-      return descriptions;
+    try {
+      const regex = new RegExp('^' + regexStr.replace(/\./g, '[0-9A-F]') + '$', 'i');
+      if (regex.test(atrHex)) {
+        return descriptions;
+      }
+    } catch {
+      continue;
     }
   }
   return null;

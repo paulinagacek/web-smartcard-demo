@@ -400,11 +400,17 @@ describe('ATR Parsing and Matching', () => {
 ([0-9A-F]+)+X
 	ReDoS pattern line
 
+3B0
+	Odd nibble count line
+
 ${'A'.repeat(68)}
 	Overly long ATR line (> 66 chars)
 
 3B 01 02 03
 	Valid Card
+
+3B [13]0 0[1-5] A[FE]
+	Valid Character Class Card
 `;
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
@@ -413,8 +419,9 @@ ${'A'.repeat(68)}
 
       const atrMap = await module.fetchAndParseAtrList();
 
-      expect(atrMap.size).toBe(1);
+      expect(atrMap.size).toBe(2);
       expect(atrMap.get('3B010203')).toEqual(['Valid Card']);
+      expect(atrMap.get('3B[13]00[1-5]A[FE]')).toEqual(['Valid Character Class Card']);
     });
   });
 
@@ -422,6 +429,7 @@ ${'A'.repeat(68)}
     const atrMap = new Map<string, string[]>();
     atrMap.set('3B010203', ['Exact Match Card']);
     atrMap.set('3B..0405', ['Wildcard Match Card']); // two wildcards
+    atrMap.set('3B[13]00[1-5]A[FE]', ['Character Class Card']);
 
     test('should return descriptions for an exact ATR match', () => {
       const matches = module.matchAtr('3B010203', atrMap);
@@ -431,6 +439,11 @@ ${'A'.repeat(68)}
     test('should return descriptions for a wildcard ATR match', () => {
       const matches = module.matchAtr('3BFF0405', atrMap);
       expect(matches).toEqual(['Wildcard Match Card']);
+    });
+
+    test('should return descriptions for a character class ATR match', () => {
+      expect(module.matchAtr('3B3004AE', atrMap)).toEqual(['Character Class Card']);
+      expect(module.matchAtr('3B2004AE', atrMap)).toBeNull();
     });
 
     test('should return null if no match is found', () => {
@@ -443,6 +456,7 @@ ${'A'.repeat(68)}
         ['3B04([', ['Malformed Syntax']],
         ['([0-9A-F]+)+X', ['ReDoS Pattern']],
         ['\\D{4}', ['Inverted Escape']],
+        ['3B[F-0]0', ['Reversed Range']],
         ['3B010203', ['Safe Match']],
       ]);
 
