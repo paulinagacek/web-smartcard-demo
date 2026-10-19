@@ -58,12 +58,9 @@ export function deserializeNumber(bytes: Uint8Array,
          numberByteSize <= (bytes.byteLength - bytesOffset),
         "deserializeNumber: invalid numberByteSize");
 
-  let currentDigit = numberByteSize;
-  let n: number = 0
-  while (currentDigit > 0) {
-    let i = bytesOffset + (numberByteSize - currentDigit);
-    n |= bytes[i] << (8 * (currentDigit - 1))
-    currentDigit--;
+  let n = 0;
+  for (let i = bytesOffset; i < bytesOffset + numberByteSize; i++) {
+    n = n * 256 + bytes[i];
   }
   return n;
 }

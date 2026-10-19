@@ -14,9 +14,16 @@
  * limitations under the License.
  */
 
-import { getValue, readLength } from './ber';
+import { deserializeNumber, getValue, readLength } from './ber';
 
 describe('ber', () => {
+  describe('deserializeNumber', () => {
+    test('should decode unsigned 4-byte big-endian integers with MSB set without signed 32-bit overflow', () => {
+      expect(deserializeNumber(new Uint8Array([0x80, 0x00, 0x00, 0x00]), 0, 4)).toBe(0x80000000);
+      expect(deserializeNumber(new Uint8Array([0xFF, 0xFF, 0xFF, 0xFA]), 0, 4)).toBe(0xFFFFFFFA);
+    });
+  });
+
   describe('readLength', () => {
     test('should parse definite short-form length', () => {
       const bytes = new Uint8Array([0x70, 0x03, 0xAA, 0xBB, 0xCC]);
